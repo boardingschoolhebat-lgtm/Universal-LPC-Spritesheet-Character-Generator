@@ -38,3 +38,11 @@ These are also equivalent to the built-in lpctools layout's "universal" and "uni
 These cutouts can be used on their own. It is recommended to use cutouts with Aseprite or another image editor. When generating assets, you can select these cutouts across the entire page on the "black" to remove any elements from a specific layer.
 
 lpctools is probably a more viable option along with masks, but these cutouts are another potential option you can use instead.
+
+### Video
+
+`tools/video/` slices sheets into frames and assembles an animated GIF, MP4 or
+WebM (plus an optional PNG sequence for video editors). It can stack several
+raw sheets into one character, render a whole folder of animations in a single
+run, trim/letterbox the result, draw stickman silhouettes, and concatenate a
+JSON clip plan into one reel. See [video/README.md](video/README.md).

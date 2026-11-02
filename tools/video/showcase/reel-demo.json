@@ -1,0 +1,22 @@
+{
+  "$comment": "Demo reel for the showcase page: two layered clips joined into one video.",
+  "fps": 10,
+  "scale": 4,
+  "gap": 4,
+  "gapMode": "freeze",
+  "direction": "down",
+  "clips": [
+    {
+      "sheet": "../../../spritesheets/body/bodies/male/walk.png",
+      "layers": ["../../../spritesheets/legs/pants/male/walk.png", "../../../spritesheets/head/heads/human/male/walk.png"],
+      "cycle": "walk",
+      "duration": 1.6
+    },
+    {
+      "sheet": "../../../spritesheets/body/bodies/male/slash.png",
+      "layers": ["../../../spritesheets/legs/pants/male/slash.png", "../../../spritesheets/head/heads/human/male/slash.png"],
+      "direction": "right",
+      "cycle": "slash"
+    }
+  ]
+}

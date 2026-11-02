@@ -1,6 +1,10 @@
 import { previewCanvas, previewCtx } from "./preview-canvas.ts";
 import type { State } from "../state/state.ts";
-import { FRAME_SIZE, ANIMATION_CONFIGS } from "../state/constants.ts";
+import {
+  FRAME_SIZE,
+  ANIMATION_CONFIGS,
+  DIRECTIONS,
+} from "../state/constants.ts";
 import { get2DContext, drawTransparencyBackground } from "./canvas-utils.ts";
 import { applyTransparencyMaskToCanvas } from "./mask.ts";
 import { canvas } from "./renderer.ts";
@@ -80,26 +84,53 @@ export function setPreviewAnimation(animationName: string): number[] {
 }
 
 /**
- * Draw one preview frame for a given index into `animationFrames` (the cycle).
- * Used by the animation loop and by visual tests (static frame, no rAF).
+ * Cycle indices (into the sheet's frame columns) the preview currently plays.
+ * Exposed so exports reuse exactly the frames and rows the preview shows.
  */
-function paintPreviewFrameForCycleIndex(
+export function getPreviewAnimationState(): {
+  frames: readonly number[];
+  rowNum: number;
+  isCustom: boolean;
+  /** Frame cell size (64 for standard sheets, larger for some custom ones). */
+  frameSize: number;
+  /** Row lookup table for the 4 directions, first row first. */
+  rows: readonly number[];
+} {
+  const customAnimDef =
+    activeCustomAnimation && customAnimations
+      ? customAnimations[activeCustomAnimation]
+      : undefined;
+  return {
+    frames: animationFrames,
+    rowNum: animRowNum,
+    isCustom: activeCustomAnimation !== null,
+    frameSize: customAnimDef ? customAnimDef.frameSize : FRAME_SIZE,
+    rows: Array.from({ length: animRowNum }, (_, i) => i),
+  };
+}
+
+/** Map a direction name to its sheet row index (0-based, first row = index 0). */
+export function directionToRowIndex(
+  direction: "up" | "left" | "down" | "right",
+  rowNum: number,
+): number {
+  const index = DIRECTIONS.indexOf(direction);
+  return index >= 0 && index < rowNum ? index : 0;
+}
+
+/**
+ * Paint one animation frame for a given index into `animationFrames` (the
+ * cycle), without the preview's clear/background handling. Source pixels come
+ * from the offscreen `canvas`, matching what `paintPreviewFrameForCycleIndex`
+ * shows. Export uses this to compose GIF frames.
+ */
+export function paintAnimationFrameToContext(
   state: State,
+  ctx: CanvasRenderingContext2D,
   cycleIndex: number,
 ): void {
-  if (!previewCtx || !canvas || !previewCanvas) {
+  if (!canvas) {
     return;
-  }
-
-  previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
-
-  // Draw transparency grid if enabled
-  if (state.showTransparencyGrid) {
-    drawTransparencyBackground(
-      previewCtx,
-      previewCanvas.width,
-      previewCanvas.height,
-    );
   }
 
   const currentFrame = animationFrames[cycleIndex];
@@ -130,23 +161,49 @@ function paintPreviewFrameForCycleIndex(
     tmpCanvas = canvas;
   }
 
-  // Draw stacked rows from main canvas to preview
+  // Draw stacked rows from main canvas to the target context
   for (let i = 0; i < animRowNum; i++) {
     const srcY = activeCustomAnimation
       ? yOffset + i * frameSize // Custom animation: use Y offset + row * frameSize
       : (animRowStart + i) * FRAME_SIZE; // Standard animation: use row * 64
-    previewCtx.drawImage(
+    ctx.drawImage(
       tmpCanvas,
       currentFrame * frameSize, // source x
       srcY, // source y
       frameSize, // source width
       frameSize, // source height
-      i * frameSize, // dest x (spread horizontally)
+      i * frameSize, // dest x (rows side by side)
       0, // dest y
       frameSize, // dest width
       frameSize, // dest height
     );
   }
+}
+
+/**
+ * Draw one preview frame for a given index into `animationFrames` (the cycle).
+ * Used by the animation loop and by visual tests (static frame, no rAF).
+ */
+function paintPreviewFrameForCycleIndex(
+  state: State,
+  cycleIndex: number,
+): void {
+  if (!previewCtx || !previewCanvas) {
+    return;
+  }
+
+  previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+
+  // Draw transparency grid if enabled
+  if (state.showTransparencyGrid) {
+    drawTransparencyBackground(
+      previewCtx,
+      previewCanvas.width,
+      previewCanvas.height,
+    );
+  }
+
+  paintAnimationFrameToContext(state, previewCtx, cycleIndex);
 }
 
 /**

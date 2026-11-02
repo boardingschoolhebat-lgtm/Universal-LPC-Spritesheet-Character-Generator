@@ -1,4 +1,16 @@
-import { downloadAsPNG, downloadFile } from "../canvas/download.ts";
+import {
+  downloadAsPNG,
+  downloadBlob,
+  downloadFile,
+} from "../canvas/download.ts";
+import {
+  buildContactSheetZip,
+  buildLpcVideoCommand,
+  exportAnimationGif,
+  exportAnimationWebM,
+  isWebmSupported,
+  type AnimationDirection,
+} from "../canvas/animation-export.ts";
 import { drawCalls } from "../canvas/renderer.ts";
 import type { CatalogReader } from "../state/catalog.ts";
 import {
@@ -21,6 +33,13 @@ export type ClipboardCommandResult =
   | { readonly kind: "failure"; readonly error: unknown }
   | { readonly kind: "unavailable" };
 
+export type AnimationExportUiOptions = {
+  readonly direction: AnimationDirection;
+  readonly fps: number;
+  readonly scale: number;
+  readonly pingpong: boolean;
+};
+
 export type DownloadModel = {
   readonly zipDisabled: boolean;
   readonly zipTitle?: string;
@@ -29,6 +48,15 @@ export type DownloadModel = {
   readonly zipByAnimationAndItemRunning: boolean;
   readonly zipIndividualFramesRunning: boolean;
   saveSpritesheet(): void;
+  exportAnimationGif(options: AnimationExportUiOptions): void;
+  /** Resolves after the MediaRecorder run; rejects when WebM is unsupported. */
+  exportAnimationWebM(options: AnimationExportUiOptions): Promise<void>;
+  readonly webmSupported: boolean;
+  /** Builds a ZIP of per-direction PNG strips for the selected animation. */
+  exportAnimationContactSheet(options: AnimationExportUiOptions): Promise<void>;
+  copyAnimationCliCommand(
+    options: AnimationExportUiOptions,
+  ): Promise<ClipboardCommandResult>;
   downloadCreditsTxt(): void;
   downloadCreditsCsv(): void;
   exportZipByAnimation(): Promise<void>;
@@ -51,9 +79,100 @@ export const downloadModelFactory = {
       zipByItemRunning: state.zipByItem.isRunning,
       zipByAnimationAndItemRunning: state.zipByAnimationAndItem.isRunning,
       zipIndividualFramesRunning: state.zipIndividualFrames.isRunning,
+      webmSupported: isWebmSupported(),
       saveSpritesheet() {
         if (!window.canvasRenderer) return;
         downloadAsPNG("character-spritesheet.png");
+      },
+      exportAnimationGif(options) {
+        if (!window.canvasRenderer) {
+          alert("Wait for the character to finish rendering first.");
+          return;
+        }
+        try {
+          const blob = exportAnimationGif(state, {
+            animation: state.selectedAnimation,
+            fps: options.fps,
+            scale: options.scale,
+            direction: options.direction,
+            pingpong: options.pingpong,
+            background: null,
+          });
+          downloadBlob(blob, `character-${state.selectedAnimation}.gif`);
+        } catch (error) {
+          console.error("Failed to export animation GIF:", error);
+          alert("Failed to export animation GIF. See the console for details.");
+        }
+      },
+      exportAnimationWebM: async (options) => {
+        if (!window.canvasRenderer) {
+          alert("Wait for the character to finish rendering first.");
+          return;
+        }
+        if (!isWebmSupported()) {
+          alert(
+            "This browser cannot record WebM video. Please use the GIF export instead.",
+          );
+          return;
+        }
+        const blob = await exportAnimationWebM(state, {
+          animation: state.selectedAnimation,
+          fps: options.fps,
+          scale: options.scale,
+          direction: options.direction,
+          pingpong: options.pingpong,
+          background: null,
+        });
+        downloadBlob(blob, `character-${state.selectedAnimation}.webm`);
+      },
+      async exportAnimationContactSheet(options) {
+        if (!window.canvasRenderer) {
+          alert("Wait for the character to finish rendering first.");
+          return;
+        }
+        try {
+          const credits = getAllCredits(
+            catalog,
+            state.selections,
+            state.bodyType,
+          );
+          const blob = await buildContactSheetZip(
+            state,
+            {
+              animation: state.selectedAnimation,
+              direction: options.direction,
+              scale: options.scale,
+            },
+            creditsToTxt(credits),
+          );
+          downloadBlob(
+            blob,
+            `character-${state.selectedAnimation}-contact-sheet.zip`,
+          );
+        } catch (error) {
+          console.error("Failed to export contact sheet ZIP:", error);
+          alert(
+            "Failed to export contact sheet ZIP. See the console for details.",
+          );
+        }
+      },
+      async copyAnimationCliCommand(options) {
+        if (!window.canvasRenderer) return { kind: "unavailable" };
+        try {
+          const command = buildLpcVideoCommand(
+            {
+              animation: state.selectedAnimation,
+              direction: options.direction,
+              fps: options.fps,
+              scale: options.scale,
+            },
+            drawCalls,
+          );
+          await navigator.clipboard.writeText(command);
+          return { kind: "success" };
+        } catch (error) {
+          return { kind: "failure", error };
+        }
       },
       downloadCreditsTxt() {
         const credits = getAllCredits(

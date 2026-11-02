@@ -68,6 +68,23 @@ export default defineConfig(({ command }) => ({
       sass: { quietDeps: true },
     },
   },
+  server: {
+    watch: {
+      // Pre-watch asset trees hold tens of thousands of files; watching them
+      // exhausts the inotify limit on some development hosts. HMR for source
+      // code is unaffected (only sources/ and config files need watching).
+      ignored: [
+        "spritesheets/**",
+        "sheet_definitions/**",
+        "palette_definitions/**",
+        "dist/**",
+      ],
+      // Opt-in watcher polling: set VITE_WATCH_POLLING=true on hosts where the
+      // inotify quota is exhausted (e.g. shared dev VMs) to keep dev servers
+      // and tests running without inotify.
+      usePolling: process.env.VITE_WATCH_POLLING === "true",
+    },
+  },
   plugins: [
     vitePluginPreviewServeDistSpritesheets(),
     ...itemMetadataPlugins(command),

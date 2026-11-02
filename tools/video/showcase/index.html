@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LPC Sheet to Video — Ringkasan Pekerjaan</title>
+<style>
+  :root {
+    --bg: #12141a;
+    --panel: #1a1e28;
+    --panel-2: #20252f;
+    --border: #2c3341;
+    --text: #e6e9ef;
+    --muted: #9aa3b2;
+    --accent: #7aa2f7;
+    --accent-2: #9ece6a;
+    --accent-3: #f7768e;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+    padding: 2rem 1rem 4rem;
+  }
+  main { max-width: 62rem; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 3rem; }
+  header .kicker {
+    font-family: var(--mono);
+    font-size: .8rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  header h1 {
+    font-size: clamp(1.6rem, 4vw, 2.4rem);
+    background: linear-gradient(90deg, var(--accent), var(--accent-2), var(--accent-3));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    margin: .3rem 0 .5rem;
+  }
+  header p.lead { color: var(--muted); max-width: 46rem; margin: 0 auto; }
+  section { margin-bottom: 3.5rem; }
+  h2 {
+    font-size: 1.25rem;
+    margin-bottom: .35rem;
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+  }
+  h2::before { content: ""; width: .55rem; height: 1.25rem; border-radius: 3px; background: var(--accent); }
+  .section-note { color: var(--muted); margin-bottom: 1.25rem; font-size: .95rem; }
+
+  /* CLI cards */
+  .cli-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); gap: 1rem; }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.1rem 1.2rem;
+  }
+  .card h3 { font-family: var(--mono); font-size: 1rem; color: var(--accent); margin-bottom: .35rem; }
+  .card p { color: var(--muted); font-size: .92rem; }
+  .card .tags { margin-top: .8rem; display: flex; flex-wrap: wrap; gap: .4rem; }
+  .tag {
+    font-family: var(--mono); font-size: .72rem;
+    background: var(--panel-2); border: 1px solid var(--border);
+    border-radius: 999px; padding: .15rem .6rem; color: var(--text);
+  }
+  .tag.opt { color: var(--accent-2); }
+
+  /* gallery */
+  .gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1.25rem; }
+  figure.demo {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  figure.demo .stage {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 15rem; padding: 1rem;
+    background:
+      radial-gradient(circle at 50% 40%, #242a36 0%, #171a22 75%);
+  }
+  figure.demo img { max-width: 100%; image-rendering: pixelated; }
+  figure.demo figcaption { padding: .8rem 1rem 1rem; }
+  figure.demo figcaption strong { display: block; font-size: .95rem; margin-bottom: .2rem; }
+  figure.demo figcaption p { color: var(--muted); font-size: .82rem; margin-bottom: .5rem; }
+
+  code, pre { font-family: var(--mono); font-size: .78rem; }
+  pre {
+    background: #0c0e13; border: 1px solid var(--border); border-radius: 8px;
+    padding: .7rem .8rem; overflow-x: auto; color: #b7c2d4; line-height: 1.5;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  pre .p { color: var(--accent-3); } /* prompt/flag */
+  pre .v { color: var(--accent-2); } /* value */
+
+  /* capability list */
+  .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: 1rem; }
+  .feature {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 1rem 1.1rem; display: flex; gap: .8rem; align-items: flex-start;
+  }
+  .feature .icon {
+    flex: none; width: 2.1rem; height: 2.1rem; border-radius: 8px;
+    display: grid; place-items: center;
+    background: var(--panel-2); border: 1px solid var(--border);
+    font-size: 1.05rem;
+  }
+  .feature strong { font-size: .95rem; display: block; }
+  .feature span { color: var(--muted); font-size: .85rem; }
+
+  /* tables */
+  table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; font-size: .9rem; }
+  th, td { text-align: left; padding: .6rem .9rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--panel-2); font-size: .8rem; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+  td code { color: var(--accent); }
+  tr:last-child th, tr:last-child td { border-bottom: none; }
+  .table-wrap { border-radius: 12px; overflow-x: auto; }
+  .yes { color: var(--accent-2); } .no { color: var(--accent-3); }
+
+  pipeline {
+    display: block;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 1.2rem; overflow-x: auto;
+  }
+  pipeline .chain { font-family: var(--mono); font-size: .85rem; color: var(--muted); white-space: nowrap; }
+  pipeline .chain b { color: var(--text); font-weight: 600; }
+  pipeline .chain .arrow { color: var(--accent); padding: 0 .5rem; }
+  pipeline ul { list-style: none; margin-top: .9rem; }
+  pipeline li { color: var(--muted); font-size: .85rem; padding: .15rem 0; }
+  pipeline li::before { content: "›"; color: var(--accent); margin-right: .5rem; }
+  pipeline b { color: var(--text); }
+
+  footer {
+    border-top: 1px solid var(--border); margin-top: 2rem; padding-top: 1.5rem;
+    color: var(--muted); font-size: .85rem; text-align: center;
+  }
+  footer a { color: var(--accent); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+  a.docs { color: var(--accent); font-size: .88rem; }
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <div class="kicker">Universal LPC Spritesheet Character Generator</div>
+  <h1>LPC Sheet to Video — apa saja yang sudah dibangun</h1>
+  <p class="lead">
+    Tiga CLI <em>pure-Node</em> yang mengubah sprite LPC menjadi animasi bergerak:
+    menjahit lembaran PNG (dekode + komposisi + trim) di dalam Node, lalu mengencode
+    GIF langsung dari Node dan MP4/WebM lewat <code>ffmpeg</code>. Sengaja tanpa satu pun
+    dependensi <code>npm</code> — jalankan langsung dengan <code>node</code>, tanpa <code>npm ci</code>.
+  </p>
+</header>
+
+<section id="cli">
+  <h2>Tiga CLI di <code>tools/video/</code></h2>
+  <p class="section-note">Semua berkas baru adalah <code>.ts</code>, berjalan langsung lewat <code>node --experimental-strip-types</code>. Contoh di bawah cukup diketik apa adanya.</p>
+  <div class="cli-grid">
+    <div class="card">
+      <h3>lpc-video.ts</h3>
+      <p>Satu sheet (atau folder berisi frame PNG bernomor) → GIF / MP4 / WebM, plus urutan PNG untuk editor video. Ini CLI utama: layer OK, siklus animasi dari app, trim, fit rasio, gaya silhouette.</p>
+      <div class="tags">
+        <span class="tag">--layer</span><span class="tag">--cycle</span><span class="tag">--direction all</span>
+        <span class="tag">--trim</span><span class="tag">--fit 9:16</span><span class="tag">--style silhouette</span>
+        <span class="tag opt">--frames dir</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3>lpc-batch.ts</h3>
+      <p>Satu folder berisi sheet per-animasi → satu klip per animasi dalam sekali jalan. Nama berkas menentukan siklus (<code>walk.png</code> → siklus <code>walk</code>); layer mengikuti template <code>{name}</code>. Klip yang gagal tidak menghentikan run; exit code non-zero bila ada yang gagal.</p>
+      <div class="tags">
+        <span class="tag">--layer {name}.png</span><span class="tag">--format gif|mp4|webm</span>
+        <span class="tag">--trim</span><span class="tag">--fit 9:16</span><span class="tag">--list</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3>lpc-reel.ts</h3>
+      <p>Manifest JSON berisi banyak klip → satu video utuh dengan <b>gap</b> antar klip (<code>freeze</code>: ulangi frame terakhir, atau <code>blank</code>: frame kosong). Trim dihitung dari gabungan semua klip supaya ukuran frame seragam dari awal sampai akhir.</p>
+      <div class="tags">
+        <span class="tag">plan.json</span><span class="tag">--gap</span><span class="tag">--gap-mode</span>
+        <span class="tag opt">--list preview</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="demo">
+  <h2>Hasil nyata dari CLI ini</h2>
+  <p class="section-note">Lima klip di bawah dirender langsung oleh tool di folder ini — bukan mock-up. Bagan warna gelap sengaja dipilih supaya GIF transparannya kelihatan.</p>
+  <div class="gallery">
+    <figure class="demo">
+      <div class="stage"><img src="assets/walk-layers.gif" alt="Walk cycle dengan 5 layer" /></div>
+      <figcaption>
+        <strong>Layering 5 lapisan</strong>
+        <p>body + celana + t-shirt + kepala + rambut xlong dijahit per sel 64px.</p>
+        <pre><span class="p">node</span> lpc-video.ts body/walk.png \
+  <span class="p">--layer</span> <span class="v">legs/walk.png</span> <span class="p">--layer</span> <span class="v">tshirt/walk.png</span> … \
+  <span class="p">--cycle</span> <span class="v">walk</span> <span class="p">--scale</span> <span class="v">6</span> <span class="p">--out</span> <span class="v">walk-layers.gif</span></pre>
+      </figcaption>
+    </figure>
+
+    <figure class="demo">
+      <div class="stage"><img src="assets/stickman.gif" alt="Gaya silhouette stickman" /></div>
+      <figcaption>
+        <strong>Gaya silhouette (stickman)</strong>
+        <p>Posterisasi tokoh jadi satu tinta datar + garis 1px di sekelilingnya.</p>
+        <pre><span class="p">--style</span> <span class="v">silhouette</span> \
+<span class="p">--ink</span> <span class="v">#1a1a1a</span> <span class="p">--outline</span> <span class="v">#f5f5f5</span></pre>
+      </figcaption>
+    </figure>
+
+    <figure class="demo">
+      <div class="stage"><img src="assets/run-all-directions.gif" alt="Run ke 4 arah dalam grid 2x2" /></div>
+      <figcaption>
+        <strong>Empat arah dalam grid 2×2</strong>
+        <p>up · left · down · right dijahit jadi satu frame komposit 128×128.</p>
+        <pre><span class="p">--direction</span> <span class="v">all</span> <span class="p">--scale</span> <span class="v">2</span></pre>
+      </figcaption>
+    </figure>
+
+    <figure class="demo">
+      <div class="stage"><img src="assets/vertical-9-16.gif" alt="Potongan vertikal 9:16" /></div>
+      <figcaption>
+        <strong>Trim + fit rasio vertical 9:16</strong>
+        <p>Frame dipotong ke union box tinta semua frame, lalu letterbox di canvas rasio <code>w:h</code> apa pun (<code>9:16</code>, <code>1:1</code>, <code>4:3</code>, …).</p>
+        <pre><span class="p">--trim</span> <span class="p">--fit</span> <span class="v">9:16</span> <span class="p">--bg</span> <span class="v">#101010</span></pre>
+      </figcaption>
+    </figure>
+
+    <figure class="demo">
+      <div class="stage"><img src="assets/reel-combined.gif" alt="Reel gabungan walk + slash" /></div>
+      <figcaption>
+        <strong>Reel: beberapa klip jadi satu video</strong>
+        <p>Walk 1.6s → gap 4 frame freeze → slash kanan. Semua akurasi timing dikontrol manifest <code>reel-demo.json</code>.</p>
+        <pre><span class="p">node</span> lpc-reel.ts <span class="v">reel-demo.json</span> \
+  <span class="p">--out</span> <span class="v">reel-combined.gif</span></pre>
+      </figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="fitur">
+  <h2>Kemampuan utama</h2>
+  <p class="section-note">Sisa detail daftar opsi lengkap ada di <code>tools/video/README.md</code>.</p>
+  <div class="features">
+    <div class="feature"><div class="icon">🧩</div><div><strong>Layering per sel 64×64</strong><span>Layer yang lebih ramping (kolom lebih sedikit) tetap sejajar; jumlah frame mengikuti daftar paling pendek — urutan sama seperti yang digambar generator.</span></div></div>
+    <div class="feature"><div class="icon">🔄</div><div><strong>Siklus animasi dari aplikasi sendiri</strong><span><code>ANIMATION_CONFIGS</code> dipakai ulang, jadi loop CLI persis dengan preview generator (contoh <code>walk</code> memutar kolom 1–8, melewati frame jeda duplikat).</span></div></div>
+    <div class="feature"><div class="icon">✂️</div><div><strong>Trim tetap saling register</strong><span>Union box tinta dihitung dari <em>semua</em> frame, jadi animasi tidak "melompat" saat di-crop.</span></div></div>
+    <div class="feature"><div class="icon">🎬</div><div><strong>Kontrol baca timing</strong><span><code>--loop pingpong</code> untuk siklus lokomosi, <code>--hold n</code> untuk membaca lebih lambat, <code>--duration &lt;detik&gt;</code> mengulang siklus sampai durasi terpenuhi.</span></div></div>
+    <div class="feature"><div class="icon">🎨</div><div><strong>Warna presisi</strong><span>Palet GIF eksak sampai 254 warna, di atas itu median-cut; alpha 1-bit; GIF latar solid mempertahankan warna isian pas.</span></div></div>
+    <div class="feature"><div class="icon">📦</div><div><strong>Dekoder PNG lengkap</strong><span>Membaca semua sheet di repo: depth 1/2/4/8-bit, greyscale, RGB, palet (tRNS), dan RGBA, tanpa interlace.</span></div></div>
+    <div class="feature"><div class="icon">🎞️</div><div><strong><code>--frames dir</code> untuk editor video</strong><span>Tulis <code>frame-0001.png</code>… dengan ukuran final (trim/fit sudah dijalankan) langsung siap dibawa ke DaVinci/Premiere/After Effects.</span></div></div>
+    <div class="feature"><div class="icon">🚫</div><div><strong>Zero dependensi</strong><span>Semua jalan di Node standar; <code>ffmpeg</code> hanya dipanggil proses eksternal untuk MP4/WebM (opsi <code>FFMPEG</code> env atau PATH).</span></div></div>
+  </div>
+</section>
+
+<section id="format">
+  <h2>Format keluaran</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Format</th><th>Gunakan untuk</th><th>Alpha</th><th>Perlu ffmpeg</th></tr></thead>
+      <tbody>
+        <tr><td><code>.gif</code></td><td>Berbagai di chat/issue/dokumen, preview sprite</td><td class="yes">1-bit</td><td class="no">tidak</td></tr>
+        <tr><td><code>.mp4</code></td><td>Editing di editor video, upload, klip panjang</td><td class="no">tidak</td><td class="yes">ya</td></tr>
+        <tr><td><code>.webm</code></td><td>Overlay web butuh transparansi lembut</td><td class="yes">yuva420p</td><td class="yes">ya</td></tr>
+        <tr><td><code>--frames</code></td><td>Presisi frame-per-frame di editor</td><td class="yes">penuh</td><td class="no">tidak</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="pipeline">
+  <h2>Cara kerja di balik layar</h2>
+  <pipeline>
+    <div class="chain">
+      <b>sheet PNG</b> → <b>png.ts</b> → <b>sheet.ts</b> → <b>image.ts</b> → <b>render.ts</b> → <b>gif.ts</b> / <b>ffmpeg</b> → <b>keluaran</b>
+    </div>
+    <ul>
+      <li><b>render.ts</b> — deteksi <code>ffmpeg</code> dari env <code>FFMPEG</code> atau PATH, atur argumen encoder per format, tulis <code>frame-%04d.png</code> bila <code>--frames</code> di-set.</li>
+      <li><b>sheet.ts</b> — potong grid jadi frame, atur siklus, gabung up·left·down·right jadi grid 2×2 saat <code>--direction all</code>.</li>
+      <li><b>image.ts</b> — stack transparan per piksel, trim ke union box, pad utk fit rasio (nearest-neighbour skala).</li>
+      <li><b>gif.ts</b> — encoder GIF pure-Node: LZW + palet median-cut + sentinel warna transparan yang disiapkan terpisah bila latar solid.</li>
+    </ul>
+  </pipeline>
+</section>
+
+<footer>
+  <p>Semua klip di folder <code>assets/</code> dibuat dari art LPC berlisensi <a href="https://lpc.opengameart.org">Liberated Pixel Cup (LPC)</a> — simpan berkas <code>credits/</code> yang diekspor generator bila publikasi video.</p>
+  <p style="margin-top:.5rem;">Dokumen lengkap: <a class="docs" href="../README.md">tools/video/README.md</a></p>
+</footer>
+
+</main>
+</body>
+</html>

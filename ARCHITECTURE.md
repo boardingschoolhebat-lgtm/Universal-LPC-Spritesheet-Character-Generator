@@ -193,7 +193,9 @@ Verifying it needs a real browser.
 | `mask.ts` | Transparency masking (keys out magenta `#FF2CE6`) |
 | `canvas-utils.ts` | `get2DContext`, `canvasToBlob`, `getZPos` |
 | `preview-canvas.ts` | Copies the offscreen canvas to the visible preview |
-| `preview-animation.ts` | The rAF preview loop |
+| `preview-animation.ts` | The rAF preview loop and its frame-compositing helpers |
+| `gif-encode.ts` | Minimal GIF89a LZW encoder shared with the video CLI |
+| `animation-export.ts` | In-app animated GIF/WebM/contact-sheet export and the `lpc-video` CLI command builder |
 | `download.ts` | Single-PNG download |
 
 ### `sources/models/`
@@ -209,7 +211,7 @@ Verifying it needs a real browser.
 | `item-with-variants.ts` | Variant row state, selection commands, and lazy layer-preview work |
 | `item-with-recolors.ts` | Recolor row state, remembered-color commands, and preview work |
 | `palette-select-modal.ts` | Staged modal model, palette-version rows, tiles, and lazy previews |
-| `download.ts` | Download readiness/progress snapshots and PNG, credits, ZIP, and clipboard commands |
+| `download.ts` | Download readiness/progress snapshots and PNG, credits, ZIP, clipboard, and animation export (GIF/WebM/contact-sheet/CLI) commands |
 | `credits.ts` | Loading/empty/ready attribution snapshot and credit download commands |
 
 ### `sources/components/`
@@ -220,7 +222,7 @@ Verifying it needs a real browser.
 | `filters/` | Search, license, and animation filter controls |
 | `selections/` | Read-only summary of the current selections |
 | `preview/` | Animated preview and full-spritesheet preview panels |
-| `download/` | PNG, JSON, and the four ZIP export buttons; credits panel |
+| `download/` | PNG, JSON, and the four ZIP export buttons; credits panel; animation export (GIF/WebM/contact sheet) with quality presets |
 | `advanced/` | Custom PNG overlay upload and its z-position |
 
 `App` composes `Download`, `FiltersPanel`, `Credits`, and `AdvancedTools`;

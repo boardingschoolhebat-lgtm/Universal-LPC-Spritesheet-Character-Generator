@@ -1,5 +1,6 @@
 import { expect } from "chai";
 import JSZip from "jszip";
+import sinon from "sinon";
 import { describe, it, beforeEach, afterEach } from "mocha-globals";
 import {
   buildContactSheetZip,
@@ -168,8 +169,8 @@ describe("canvas/animation-export.ts", () => {
       };
     }
 
-    /** RGBA of one PNG strip pixel decoded back through an image element. */
-    async function stripPixel(blob: Blob, x = 2, y = 2): Promise<number[]> {
+    /** RGBA of one exported pixel, decoded back through an image element. */
+    async function framePixel(blob: Blob, x = 2, y = 2): Promise<number[]> {
       const img = new Image();
       const url = URL.createObjectURL(blob);
       try {
@@ -241,9 +242,113 @@ describe("canvas/animation-export.ts", () => {
       for (const direction of DIRECTIONS) {
         const file = zip.file(`walk/${direction}.png`);
         expect(file).to.not.equal(null);
-        const pixel = await stripPixel(await file!.async("blob"));
+        const pixel = await framePixel(await file!.async("blob"));
         expect(pixel.slice(0, 3)).to.deep.equal(ROW_COLORS[direction]);
       }
+    });
+
+    it("writes only the chosen direction's strip when one direction is asked for", async () => {
+      const zipBlob = await buildContactSheetZip(
+        state,
+        { animation: "walk", direction: "down", scale: 1 },
+        "single direction credits",
+      );
+      const zip = await JSZip.loadAsync(await zipBlob.arrayBuffer());
+      expect(zip.file("walk/down.png")).to.not.equal(null);
+      expect(zip.file("walk/up.png")).to.equal(null);
+      expect(zip.file("walk/left.png")).to.equal(null);
+      expect(zip.file("walk/right.png")).to.equal(null);
+    });
+
+    it("fills the requested background colour behind transparent frames", async () => {
+      const gif = exportAnimationGif(state, {
+        animation: "idle",
+        direction: "all",
+        fps: 8,
+        scale: 1,
+        pingpong: false,
+        background: "#ff0000",
+      });
+      expect(await framePixel(gif, 0, 0)).to.deep.equal([255, 0, 0, 255]);
+    });
+
+    it("leaves empty pixels transparent when no background is set", async () => {
+      const gif = exportAnimationGif(state, {
+        animation: "idle",
+        direction: "all",
+        fps: 8,
+        scale: 1,
+        pingpong: false,
+      });
+      const pixel = await framePixel(gif, 0, 0);
+      expect(pixel[3]).to.equal(0);
+    });
+
+    it("refuses the contact sheet when JSZip is not loaded", async () => {
+      window.JSZip = undefined;
+      let error: unknown = null;
+      try {
+        await buildContactSheetZip(
+          state,
+          { animation: "walk", direction: "all", scale: 1 },
+          "credits",
+        );
+      } catch (caught) {
+        error = caught;
+      }
+      expect(error).to.be.instanceOf(Error);
+      expect((error as Error).message).to.equal("JSZip library not loaded");
+    });
+
+    it("refuses both exports before the offscreen canvas exists", async () => {
+      resetOffscreenCanvasStateForTests();
+      let gifError: unknown = null;
+      try {
+        exportAnimationGif(state, {
+          animation: "walk",
+          direction: "all",
+          fps: 8,
+          scale: 1,
+          pingpong: false,
+        });
+      } catch (caught) {
+        gifError = caught;
+      }
+      expect((gifError as Error)?.message).to.equal(
+        "offscreen canvas not ready",
+      );
+      let error: unknown = null;
+      try {
+        await buildContactSheetZip(
+          state,
+          { animation: "walk", direction: "all", scale: 1 },
+          "credits",
+        );
+      } catch (caught) {
+        error = caught;
+      }
+      expect((error as Error)?.message).to.equal("offscreen canvas not ready");
+    });
+
+    it("refuses an animation the preview does not know", () => {
+      const errorStub = sinon.stub(console, "error");
+      let error: unknown = null;
+      try {
+        exportAnimationGif(state, {
+          animation: "not-an-animation",
+          direction: "all",
+          fps: 8,
+          scale: 1,
+          pingpong: false,
+        });
+      } catch (caught) {
+        error = caught;
+      } finally {
+        errorStub.restore();
+      }
+      expect((error as Error)?.message).to.equal(
+        'unknown animation "not-an-animation"',
+      );
     });
   });
 

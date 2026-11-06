@@ -112,6 +112,19 @@ function paintSingleDirectionFrame(
   );
 }
 
+/**
+ * Select the animation the caller asked for, refusing names the preview does
+ * not know. Without this the preview keeps its previous frames and the export
+ * silently ships the wrong animation.
+ */
+function selectExportAnimation(
+  options: Pick<AnimationExportOptions, "animation">,
+): void {
+  if (setPreviewAnimation(options.animation).length === 0) {
+    throw new Error(`unknown animation "${options.animation}"`);
+  }
+}
+
 /** Compose every cycle frame into raw RGBA bitmaps ready for `encodeGif`. */
 function composeFrames(
   state: State,
@@ -155,7 +168,7 @@ export function exportAnimationGif(
   if (!canvas) {
     throw new Error("offscreen canvas not ready");
   }
-  setPreviewAnimation(options.animation);
+  selectExportAnimation(options);
   const frames = composeFrames(state, options);
   if (frames.length === 0) {
     throw new Error(`no frames found for animation "${options.animation}"`);
@@ -216,7 +229,7 @@ export async function exportAnimationWebM(
       "MediaRecorder WebM recording is not supported in this browser",
     );
   }
-  setPreviewAnimation(options.animation);
+  selectExportAnimation(options);
   const frames = composeFrames(state, options);
   if (frames.length === 0) {
     throw new Error(`no frames found for animation "${options.animation}"`);
@@ -385,7 +398,7 @@ export async function buildContactSheetZip(
   if (!window.JSZip) {
     throw new Error("JSZip library not loaded");
   }
-  setPreviewAnimation(options.animation);
+  selectExportAnimation(options);
   const preview = getPreviewAnimationState();
   const rows =
     options.direction === "all"

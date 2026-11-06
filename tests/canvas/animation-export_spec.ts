@@ -7,6 +7,7 @@ import {
   buildLpcVideoCommand,
   expandPingPongFrames,
   exportAnimationGif,
+  exportAnimationWebM,
   isWebmSupported,
 } from "../../sources/canvas/animation-export.ts";
 import {
@@ -48,6 +49,34 @@ function drawCall(overrides: Partial<DrawCall> = {}): DrawCall {
     },
     ...overrides,
   };
+}
+
+/**
+ * Deterministic stand-in for `MediaRecorder`: codecs and capture timing vary
+ * in headless Chrome, but the export's wiring does not need a real encoder.
+ */
+class FakeMediaRecorder {
+  static isTypeSupported(): boolean {
+    return true;
+  }
+
+  options: MediaRecorderOptions;
+  ondataavailable: ((event: { data: Blob }) => void) | null = null;
+  onstop: (() => void) | null = null;
+
+  constructor(_stream: MediaStream, options: MediaRecorderOptions) {
+    this.options = options;
+  }
+
+  start(): void {
+    this.ondataavailable?.({
+      data: new Blob([new Uint8Array([1, 2, 3])], { type: "video/webm" }),
+    });
+  }
+
+  stop(): void {
+    this.onstop?.();
+  }
 }
 
 describe("canvas/animation-export.ts", () => {
@@ -348,6 +377,47 @@ describe("canvas/animation-export.ts", () => {
       }
       expect((error as Error)?.message).to.equal(
         'unknown animation "not-an-animation"',
+      );
+    });
+
+    it("records WebM through MediaRecorder at the composed frame size", async () => {
+      const RealRecorder = window.MediaRecorder;
+      window.MediaRecorder =
+        FakeMediaRecorder as unknown as typeof MediaRecorder;
+      try {
+        const blob = await exportAnimationWebM(state, {
+          animation: "walk",
+          direction: "down",
+          fps: 30,
+          scale: 1,
+          pingpong: false,
+        });
+        expect(blob.type).to.equal("video/webm");
+        expect(blob.size).to.equal(3);
+      } finally {
+        window.MediaRecorder = RealRecorder;
+      }
+    });
+
+    it("refuses WebM when the browser cannot record it", async () => {
+      const RealRecorder = window.MediaRecorder;
+      window.MediaRecorder = undefined as unknown as typeof MediaRecorder;
+      let error: unknown = null;
+      try {
+        await exportAnimationWebM(state, {
+          animation: "walk",
+          direction: "down",
+          fps: 8,
+          scale: 1,
+          pingpong: false,
+        });
+      } catch (caught) {
+        error = caught;
+      } finally {
+        window.MediaRecorder = RealRecorder;
+      }
+      expect((error as Error)?.message).to.equal(
+        "MediaRecorder WebM recording is not supported in this browser",
       );
     });
   });

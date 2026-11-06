@@ -1,11 +1,37 @@
 import { expect } from "chai";
-import { describe, it } from "mocha-globals";
+import JSZip from "jszip";
+import { describe, it, beforeEach, afterEach } from "mocha-globals";
 import {
+  buildContactSheetZip,
   buildLpcVideoCommand,
   expandPingPongFrames,
+  exportAnimationGif,
   isWebmSupported,
 } from "../../sources/canvas/animation-export.ts";
+import {
+  getPreviewAnimationState,
+  setPreviewAnimation,
+} from "../../sources/canvas/preview-animation.ts";
+import {
+  canvas as rendererCanvas,
+  initCanvas,
+  resetOffscreenCanvasStateForTests,
+} from "../../sources/canvas/renderer.ts";
+import {
+  ANIMATION_CONFIGS,
+  DIRECTIONS,
+  FRAME_SIZE,
+} from "../../sources/state/constants.ts";
+import { createState, type State } from "../../sources/state/state.ts";
 import type { DrawCall } from "../../sources/canvas/renderer.ts";
+
+/** One opaque colour per LPC direction row, in `DIRECTIONS` order. */
+const ROW_COLORS: Record<string, [number, number, number]> = {
+  up: [255, 0, 0],
+  left: [0, 255, 0],
+  down: [0, 0, 255],
+  right: [255, 255, 0],
+};
 
 function drawCall(overrides: Partial<DrawCall> = {}): DrawCall {
   return {
@@ -102,6 +128,122 @@ describe("canvas/animation-export.ts", () => {
       expect(expanded).to.deep.equal(frames);
       frames.push(3);
       expect(expanded).to.deep.equal([0, 1, 2]);
+    });
+  });
+
+  describe("frame composition", function () {
+    this.timeout(15_000);
+
+    let state: State;
+    let previousJSZip: Window["JSZip"];
+
+    /** Paint one solid colour per direction row of the walk band. */
+    function fillWalkBand(): void {
+      const sheet = rendererCanvas;
+      if (!sheet) throw new Error("renderer canvas missing");
+      const ctx = sheet.getContext("2d");
+      if (!ctx) throw new Error("2d context missing");
+      ctx.clearRect(0, 0, sheet.width, sheet.height);
+      const walk = ANIMATION_CONFIGS.walk as { row: number };
+      DIRECTIONS.forEach((direction, index) => {
+        const [r, g, b] = ROW_COLORS[direction];
+        ctx.fillStyle = `rgb(${r},${g},${b})`;
+        ctx.fillRect(
+          0,
+          (walk.row + index) * FRAME_SIZE,
+          sheet.width,
+          FRAME_SIZE,
+        );
+      });
+    }
+
+    async function gifSize(blob: Blob): Promise<{
+      width: number;
+      height: number;
+    }> {
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      return {
+        width: bytes[6] | (bytes[7] << 8),
+        height: bytes[8] | (bytes[9] << 8),
+      };
+    }
+
+    /** RGBA of one PNG strip pixel decoded back through an image element. */
+    async function stripPixel(blob: Blob, x = 2, y = 2): Promise<number[]> {
+      const img = new Image();
+      const url = URL.createObjectURL(blob);
+      try {
+        img.src = url;
+        await img.decode();
+        const c = document.createElement("canvas");
+        c.width = img.width;
+        c.height = img.height;
+        const ctx = c.getContext("2d");
+        if (!ctx) throw new Error("2d context missing");
+        ctx.drawImage(img, 0, 0);
+        return Array.from(ctx.getImageData(x, y, 1, 1).data);
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    }
+
+    beforeEach(() => {
+      state = createState();
+      state.applyTransparencyMask = false;
+      initCanvas();
+      fillWalkBand();
+      setPreviewAnimation("walk");
+      previousJSZip = window.JSZip;
+      window.JSZip = JSZip as unknown as NonNullable<Window["JSZip"]>;
+    });
+
+    afterEach(() => {
+      window.JSZip = previousJSZip;
+      setPreviewAnimation("walk");
+      resetOffscreenCanvasStateForTests();
+    });
+
+    it('keeps every direction row in one GIF frame when direction is "all"', async () => {
+      const blob = exportAnimationGif(state, {
+        animation: "walk",
+        direction: "all",
+        fps: 8,
+        scale: 2,
+        pingpong: false,
+      });
+      const preview = getPreviewAnimationState();
+      const { width, height } = await gifSize(blob);
+      expect(width).to.equal(preview.frameSize * preview.rowNum * 2);
+      expect(height).to.equal(preview.frameSize * 2);
+    });
+
+    it("exports a single direction at one frame cell wide", async () => {
+      const blob = exportAnimationGif(state, {
+        animation: "walk",
+        direction: "down",
+        fps: 8,
+        scale: 1,
+        pingpong: false,
+      });
+      const { width, height } = await gifSize(blob);
+      expect(width).to.equal(getPreviewAnimationState().frameSize);
+      expect(height).to.equal(getPreviewAnimationState().frameSize);
+    });
+
+    it("writes one contact-sheet strip per direction with that row's pixels", async () => {
+      const zipBlob = await buildContactSheetZip(
+        state,
+        { animation: "walk", direction: "all", scale: 1 },
+        "credits for the contact sheets",
+      );
+      const zip = await JSZip.loadAsync(await zipBlob.arrayBuffer());
+      expect(zip.file("credits/credits.txt")).to.not.equal(null);
+      for (const direction of DIRECTIONS) {
+        const file = zip.file(`walk/${direction}.png`);
+        expect(file).to.not.equal(null);
+        const pixel = await stripPixel(await file!.async("blob"));
+        expect(pixel.slice(0, 3)).to.deep.equal(ROW_COLORS[direction]);
+      }
     });
   });
 

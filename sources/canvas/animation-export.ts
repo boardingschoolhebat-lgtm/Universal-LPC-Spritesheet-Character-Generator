@@ -121,10 +121,12 @@ function composeFrames(
   const frameSize = preview.frameSize;
   const scale = options.scale;
   const single = options.direction !== "all";
+  // "all" keeps the preview's side-by-side direction rows in one frame.
+  const logicalWidth = single ? frameSize : frameSize * preview.rowNum;
 
   return buildCycle(options).map((cycleIndex) => {
     const frameCanvas = document.createElement("canvas");
-    frameCanvas.width = frameSize * scale;
+    frameCanvas.width = logicalWidth * scale;
     frameCanvas.height = frameSize * scale;
     const ctx = get2DContext(frameCanvas);
     ctx.imageSmoothingEnabled = false; // keep pixel art crisp
@@ -327,20 +329,23 @@ function composeDirectionStrip(
   const frameSize = preview.frameSize;
   const rowIndex = directionToRowIndex(direction, preview.rowNum);
 
-  const frameCanvas = document.createElement("canvas");
-  frameCanvas.width = frameSize;
-  frameCanvas.height = frameSize;
-  const frameCtx = get2DContext(frameCanvas);
-
   const strip = document.createElement("canvas");
   strip.width = frameSize * preview.frames.length;
   strip.height = frameSize;
   const stripCtx = get2DContext(strip);
 
+  // The preview painter lays the direction rows side by side, so each cycle
+  // frame needs a full-width canvas before the wanted row can be copied out.
+  const rowSet = document.createElement("canvas");
+  rowSet.width = frameSize * preview.rowNum;
+  rowSet.height = frameSize;
+  const rowSetCtx = get2DContext(rowSet);
+
   preview.frames.forEach((cycleIndex, index) => {
-    paintAnimationFrameToContext(state, frameCtx, cycleIndex);
+    rowSetCtx.clearRect(0, 0, rowSet.width, rowSet.height);
+    paintAnimationFrameToContext(state, rowSetCtx, cycleIndex);
     stripCtx.drawImage(
-      frameCanvas,
+      rowSet,
       rowIndex * frameSize,
       0,
       frameSize,

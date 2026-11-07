@@ -198,6 +198,49 @@ describe("canvas/animation-export.ts", () => {
       };
     }
 
+    /** Offset just past a GIF sub-block chain, including its zero terminator. */
+    function skipGifSubBlocks(bytes: Uint8Array, start: number): number {
+      let offset = start;
+      for (;;) {
+        const size = bytes[offset];
+        offset += 1;
+        if (size === 0) return offset;
+        offset += size;
+      }
+    }
+
+    /**
+     * Count image descriptor blocks by walking the GIF structure, so frame data
+     * bytes that happen to look like block markers cannot be miscounted.
+     */
+    function countGifFrames(bytes: Uint8Array): number {
+      const screenPacked = bytes[10];
+      let offset = 13;
+      if ((screenPacked & 0x80) !== 0) {
+        offset += 3 * (1 << ((screenPacked & 0x07) + 1));
+      }
+      let frames = 0;
+      for (;;) {
+        const block = bytes[offset];
+        if (block === 0x3b) return frames;
+        if (block === 0x2c) {
+          frames += 1;
+          const imagePacked = bytes[offset + 9];
+          offset += 10;
+          if ((imagePacked & 0x80) !== 0) {
+            offset += 3 * (1 << ((imagePacked & 0x07) + 1));
+          }
+          offset += 1; // LZW minimum code size
+          offset = skipGifSubBlocks(bytes, offset);
+        } else if (block === 0x21) {
+          offset += 2; // extension introducer + label
+          offset = skipGifSubBlocks(bytes, offset);
+        } else {
+          throw new Error(`unexpected GIF block at ${offset}`);
+        }
+      }
+    }
+
     /** RGBA of one exported pixel, decoded back through an image element. */
     async function framePixel(blob: Blob, x = 2, y = 2): Promise<number[]> {
       const img = new Image();
@@ -378,6 +421,31 @@ describe("canvas/animation-export.ts", () => {
       expect((error as Error)?.message).to.equal(
         'unknown animation "not-an-animation"',
       );
+    });
+
+    it("writes every ping-pong frame into the GIF", async () => {
+      const options = {
+        animation: "walk" as const,
+        direction: "down" as const,
+        fps: 8,
+        scale: 1,
+      };
+      const forward = await exportAnimationGif(state, {
+        ...options,
+        pingpong: false,
+      });
+      const pingpong = await exportAnimationGif(state, {
+        ...options,
+        pingpong: true,
+      });
+      const cycle = getPreviewAnimationState().frames.length;
+      expect(cycle).to.be.greaterThan(2);
+      expect(
+        countGifFrames(new Uint8Array(await forward.arrayBuffer())),
+      ).to.equal(cycle);
+      expect(
+        countGifFrames(new Uint8Array(await pingpong.arrayBuffer())),
+      ).to.equal(cycle * 2 - 2);
     });
 
     it("records WebM through MediaRecorder at the composed frame size", async () => {

@@ -187,6 +187,22 @@ describe("canvas/animation-export.ts", () => {
       });
     }
 
+    /**
+     * Paint a distinct colour per sheet column across the full height, so every
+     * cycle value produces its own frame no matter which row gets sampled.
+     */
+    function fillFrameColumns(): void {
+      const sheet = rendererCanvas;
+      if (!sheet) throw new Error("renderer canvas missing");
+      const ctx = sheet.getContext("2d");
+      if (!ctx) throw new Error("2d context missing");
+      ctx.clearRect(0, 0, sheet.width, sheet.height);
+      for (let column = 0; column * FRAME_SIZE < sheet.width; column++) {
+        ctx.fillStyle = `rgb(${column * 18}, ${255 - column * 18}, ${(column * 37) % 256})`;
+        ctx.fillRect(column * FRAME_SIZE, 0, FRAME_SIZE, sheet.height);
+      }
+    }
+
     async function gifSize(blob: Blob): Promise<{
       width: number;
       height: number;
@@ -238,6 +254,36 @@ describe("canvas/animation-export.ts", () => {
         } else {
           throw new Error(`unexpected GIF block at ${offset}`);
         }
+      }
+    }
+
+    /** Raw bytes of every image block's LZW chain, in the order they are drawn. */
+    function readGifImageData(bytes: Uint8Array): Uint8Array[] {
+      const screenPacked = bytes[10];
+      let offset = 13;
+      if ((screenPacked & 0x80) !== 0) {
+        offset += 3 * (1 << ((screenPacked & 0x07) + 1));
+      }
+      const frames: Uint8Array[] = [];
+      for (;;) {
+        const block = bytes[offset];
+        if (block === 0x3b) return frames;
+        if (block === 0x21) {
+          offset += 2; // extension introducer + label
+          offset = skipGifSubBlocks(bytes, offset);
+          continue;
+        }
+        if (block !== 0x2c)
+          throw new Error(`unexpected GIF block at ${offset}`);
+        const imagePacked = bytes[offset + 9];
+        offset += 10;
+        if ((imagePacked & 0x80) !== 0) {
+          offset += 3 * (1 << ((imagePacked & 0x07) + 1));
+        }
+        offset += 1; // LZW minimum code size
+        const start = offset;
+        offset = skipGifSubBlocks(bytes, offset);
+        frames.push(bytes.slice(start, offset));
       }
     }
 
@@ -421,6 +467,27 @@ describe("canvas/animation-export.ts", () => {
       expect((error as Error)?.message).to.equal(
         'unknown animation "not-an-animation"',
       );
+    });
+
+    it("returns the reversed frames after the forward cycle", async () => {
+      fillFrameColumns();
+      const blob = await exportAnimationGif(state, {
+        animation: "walk",
+        direction: "down",
+        fps: 8,
+        scale: 1,
+        pingpong: true,
+      });
+      const hex = readGifImageData(
+        new Uint8Array(await blob.arrayBuffer()),
+      ).map((bytes) => Array.from(bytes).join(","));
+      const cycle = getPreviewAnimationState().frames.length;
+      expect(hex.length).to.equal(cycle * 2 - 2);
+      // Distinct columns give every forward frame its own pixels.
+      expect(new Set(hex.slice(0, cycle)).size).to.equal(cycle);
+      for (let i = 0; i < cycle - 2; i++) {
+        expect(hex[cycle + i]).to.equal(hex[cycle - 2 - i]);
+      }
     });
 
     it("writes every ping-pong frame into the GIF", async () => {
